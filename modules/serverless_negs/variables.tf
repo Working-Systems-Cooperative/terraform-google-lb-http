@@ -166,3 +166,18 @@ variable "https_redirect" {
   type        = bool
   default     = false
 }
+
+// use /ping
+variable "health_check_endpoint" {
+  description = "Endpoint that backends will respond to health checks"
+  type        = string
+  // default     = 
+}
+
+
+// use 8080
+variable "health_check_port" {
+  description = "Port that backends will respond to health checks"
+  type        = string
+  // default     = 
+}

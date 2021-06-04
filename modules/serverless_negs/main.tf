@@ -111,15 +111,27 @@ resource "google_compute_ssl_certificate" "default" {
   }
 }
 
+resource "random_id" "certificate" {
+  byte_length = 4
+  prefix      = "${var.name}-cert-"
+
+  keepers = {
+    domains = join(",", var.managed_ssl_certificate_domains)
+  }
+}
+
 resource "google_compute_managed_ssl_certificate" "default" {
   provider = google-beta
   project  = var.project
   count    = var.ssl && length(var.managed_ssl_certificate_domains) > 0 && ! var.use_ssl_certificates ? 1 : 0
 
-  name = "${var.name}-cert"
+  name = random_id.certificate.hex
 
   managed {
     domains = var.managed_ssl_certificate_domains
+  }
+  lifecycle {
+    create_before_destroy = true
   }
 }
 
@@ -139,6 +151,14 @@ resource "google_compute_url_map" "https_redirect" {
     redirect_response_code = "MOVED_PERMANENTLY_DEFAULT"
     strip_query            = false
   }
+}
+
+resource "google_compute_http_health_check" "default" {
+  name               = "health-check"
+  request_path       = var.health_check_endpoint
+  check_interval_sec = 5
+  timeout_sec        = 1
+  port = var.health_check_port
 }
 
 resource "google_compute_backend_service" "default" {
@@ -166,6 +186,8 @@ resource "google_compute_backend_service" "default" {
     }
   }
 
+  health_checks = [google_compute_http_health_check.default.id]
+
   log_config {
     enable      = lookup(lookup(each.value, "log_config", {}), "enable", true)
     sample_rate = lookup(lookup(each.value, "log_config", {}), "sample_rate", "1.0")
@@ -178,7 +200,5 @@ resource "google_compute_backend_service" "default" {
       oauth2_client_secret = lookup(lookup(each.value, "iap_config", {}), "oauth2_client_secret", "")
     }
   }
-
-
 }
 
